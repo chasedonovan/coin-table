@@ -1,25 +1,87 @@
-import logo from './logo.svg';
 import './App.css';
+import React, {useEffect, useState} from 'react';
+import CoinList from './components/CoinList'
+import ExchangeHeader from './components/ExchangeHeader/ExchangeHeader'
+// import AccountBalance from './components/AccountBalance/AccountBalance.jsx'
+import axios from 'axios';
+import styled from 'styled-components'
 
-function App() {
+
+const Div = styled.div`
+  text-align: center;
+  background-color: rgb(20, 56, 97);
+  color: #cccccc;
+`;
+
+const COIN_COUNT = 10;
+const formatPrice = price => parseFloat(Number(price).toFixed(4));
+
+function App(props) {
+  // const [balance, setBalance] = useState(10000);
+  // const [showBalance, setShowBalance] = useState(true);
+  const [coinData, setCoinData] = useState([]);
+
+  const componentDidMount = async () => {
+    const response = await axios.get('https://api.coinpaprika.com/v1/coins');
+    const coinIds = response.data.slice(0, COIN_COUNT).map(coin => coin.id);
+    const tickerUrl = 'https://api.coinpaprika.com/v1/tickers/';
+    const promises = coinIds.map(id => axios.get(tickerUrl + id));
+    const coinData = await Promise.all(promises);
+    const coinPriceData = coinData.map(function(response) { 
+      const coin = response.data;
+      return {
+        key: coin.id,
+        name: coin.name,
+        ticker: coin.symbol,
+        // balance: 0,
+        price: formatPrice(coin.quotes.USD.price),
+      };
+    });
+    setCoinData(coinPriceData);
+  }  
+
+  useEffect(function() {
+    if (coinData.length === 0 ) {
+      componentDidMount();
+    }
+  });
+
+
+  // const handleBalanceVisibilityChange = () => {
+  //   setShowBalance(oldValue => !oldValue);
+  // }
+
+  const handleRefresh = async (valueChangeId) => {
+    const tickerUrl = `https://api.coinpaprika.com/v1/tickers/${valueChangeId}`;
+    const response = await axios.get(tickerUrl);
+    // debugger;
+    const newPrice = formatPrice(response.data.quotes.USD.price);
+    const newCoinData = coinData.map( function( values ) {
+      let newValues = { ...values };
+      if ( valueChangeId === values.key ) {
+        newValues.price = newPrice;
+      }
+      return newValues;
+    });
+    
+    setCoinData(newCoinData);
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Div className="App">
+      <ExchangeHeader />
+      {/* <AccountBalance 
+        amount={balance} 
+        showBalance={showBalance} 
+        handleBalanceVisibilityChange={handleBalanceVisibilityChange} /> */}
+      <CoinList 
+        coinData={coinData} 
+        // showBalance={showBalance}
+        handleRefresh={handleRefresh} />
+    </Div>
   );
+
+
 }
 
 export default App;
